@@ -5,6 +5,9 @@
 
 The stream holds the last target during a policy recompute. It never predicts
 future motion from stale observations.
+
+Limits apply to the reference state on the integration clock, not measured
+motor motion. Scheduler stalls are not replayed: each advance uses at most 20 ms.
 """
 from __future__ import annotations
 
@@ -33,9 +36,7 @@ class BoundedJointInterpolator:
         target = np.asarray(target, dtype=np.float64)
         if target.shape != (6,) or not np.isfinite(target).all():
             raise ValueError("Target must be six finite radians")
-        # A target reversal must not drive farther away before braking.
-        reversing = (target - self.position) * self.velocity < 0
-        self.velocity[reversing] = 0.0
+        # Retarget without resetting velocity: reversals must brake first.
         self.target = target.copy()
 
     def advance(self, dt: float) -> np.ndarray:
@@ -45,17 +46,22 @@ class BoundedJointInterpolator:
         error = self.target - self.position
         desired = np.clip(error / self.response_time,
                           -self.max_velocity, self.max_velocity)
-        braking_speed = np.sqrt(2 * self.max_acceleration * np.abs(error))
+        # Reserve the next position step as well as the braking distance.
+        # The rational form avoids cancellation near the target.
+        brake_step = self.max_acceleration * dt
+        stopping_term = 2 * self.max_acceleration * np.abs(error)
+        braking_speed = stopping_term / (
+            np.sqrt(brake_step * brake_step + stopping_term) + brake_step
+        )
         desired = np.sign(error) * np.minimum(np.abs(desired), braking_speed)
         self.velocity += np.clip(
             desired - self.velocity,
             -self.max_acceleration * dt,
             self.max_acceleration * dt,
         )
-        proposed = self.position + self.velocity * dt
-        crossed = (self.target - self.position) * (self.target - proposed) <= 0
-        self.position = np.where(crossed, self.target, proposed)
-        self.velocity = np.where(crossed, 0.0, self.velocity)
+        # An abrupt retarget can be inside the current stopping distance.
+        # Continue bounded braking instead of snapping position or velocity.
+        self.position += self.velocity * dt
         return self.position.copy()
 
 

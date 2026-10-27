@@ -34,6 +34,88 @@ class FakeArm:
 
 
 class SmoothingTests(unittest.TestCase):
+    def moving_interpolator(self):
+        smoother = BoundedJointInterpolator(np.zeros(6), 4, 20, .04)
+        smoother.set_target(np.full(6, .05))
+        for _ in range(10):
+            smoother.advance(.004)
+        return smoother
+
+    def assert_bounded_step(self, smoother, dt):
+        position, velocity = smoother.position.copy(), smoother.velocity.copy()
+        point = smoother.advance(dt)
+        used_dt = min(dt, .02)
+        actual_velocity = (point - position) / used_dt
+        np.testing.assert_allclose(actual_velocity, smoother.velocity, atol=1e-11)
+        self.assertLessEqual(np.max(np.abs(actual_velocity)), smoother.max_velocity + 1e-10)
+        self.assertLessEqual(np.max(np.abs(actual_velocity - velocity)) / used_dt,
+                             smoother.max_acceleration + 1e-8)
+        self.assertTrue(np.isfinite(point).all())
+
+    def test_reversal_brakes_without_resetting_reference_velocity(self):
+        smoother = self.moving_interpolator()
+        position, velocity = smoother.position.copy(), smoother.velocity.copy()
+        smoother.set_target(np.zeros(6))
+        np.testing.assert_array_equal(smoother.position, position)
+        np.testing.assert_array_equal(smoother.velocity, velocity)
+        self.assert_bounded_step(smoother, .004)
+        # The old positive velocity cannot reverse instantly at finite acceleration.
+        self.assertTrue((smoother.position > position).all())
+        for _ in range(300):
+            self.assert_bounded_step(smoother, .004)
+        np.testing.assert_allclose(smoother.position, 0, atol=1e-8)
+
+    def test_retarget_inside_stopping_distance_does_not_snap_to_endpoint(self):
+        for offset in (0., .0001):
+            with self.subTest(offset=offset):
+                smoother = self.moving_interpolator()
+                target = smoother.position + offset
+                smoother.set_target(target)
+                self.assert_bounded_step(smoother, .004)
+                self.assertTrue((smoother.position > target).all())
+                for _ in range(300):
+                    self.assert_bounded_step(smoother, .004)
+                np.testing.assert_allclose(smoother.position, target, atol=1e-8)
+
+    def test_repeated_target_preserves_state_and_copies_input(self):
+        smoother = self.moving_interpolator()
+        position, velocity = smoother.position.copy(), smoother.velocity.copy()
+        target = np.full(6, .05)
+        smoother.set_target(target)
+        target[:] = -1
+        np.testing.assert_array_equal(smoother.position, position)
+        np.testing.assert_array_equal(smoother.velocity, velocity)
+        np.testing.assert_array_equal(smoother.target, np.full(6, .05))
+
+    def test_static_targets_brake_before_crossing_even_with_fast_response(self):
+        for response in (.0001, .004, .04):
+            for distance in (.0001, .01, .2, -.2):
+                with self.subTest(response=response, distance=distance):
+                    smoother = BoundedJointInterpolator(np.zeros(6), 4, 20, response)
+                    smoother.set_target(np.full(6, distance))
+                    for _ in range(500):
+                        self.assert_bounded_step(smoother, .004)
+                        directed = smoother.position * np.sign(distance)
+                        self.assertTrue((directed >= -1e-10).all())
+                        self.assertTrue((directed <= abs(distance) + 1e-10).all())
+                    np.testing.assert_allclose(smoother.position, distance, atol=1e-8)
+
+    def test_six_axis_retargets_remain_bounded_on_variable_integration_steps(self):
+        rng = np.random.default_rng(705)
+        smoother = BoundedJointInterpolator(np.zeros(6), 4, 20, .04)
+        for step in range(2000):
+            if step % 9 == 0:
+                smoother.set_target(rng.uniform(-.2, .2, 6))
+            self.assert_bounded_step(smoother, float(rng.choice([.002, .004, .008, .016])))
+
+    def test_scheduler_stall_keeps_existing_capped_clock_without_replaying_time(self):
+        stalled, reference = self.moving_interpolator(), self.moving_interpolator()
+        self.assert_bounded_step(stalled, .08)
+        reference.advance(.02)
+        np.testing.assert_array_equal(stalled.position, reference.position)
+        np.testing.assert_array_equal(stalled.velocity, reference.velocity)
+        self.assert_bounded_step(stalled, .004)
+
     def test_targets_are_continuous_and_do_not_overshoot(self):
         smoother = BoundedJointInterpolator(np.zeros(6), 4, 20, .04)
         smoother.set_target(np.full(6, .2))

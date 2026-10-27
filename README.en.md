@@ -439,6 +439,8 @@ Set CAN interfaces, camera paths, the collection task and camera mapping in JSON
 | `smoothing.enabled` | false by default; set true for direct smoothing to 250 Hz while retaining velocity, acceleration, and action limits |
 | `smoothing.stale_timeout` | 1 second; stale actions trigger hold; inspect observation, transport, and inference latency rather than increasing the timeout to hide disconnections |
 
+Smoothing limits apply to the reference trajectory. If an abrupt target falls inside the current stopping distance, the reference brakes first and may briefly pass the new target; it does not reset velocity instantly. 250 Hz is the requested send rate; verify actual timing and joint tracking. See [deployment details](docs/deployment_modes.md#可选的-250-hz-平滑).
+
 After the short test, edit the matching JSON: set `max_cycles=0` for continuous execution and `smoothing.enabled=true` for smoothing, then repeat `--execute`. Stop the old client before changing the mode or model. Restart the client after configuration changes.
 
 Ctrl+C stops the client without automatic homing; for dual arms, check both stop results. Hold may retain torque, and disabling a motor does not disconnect physical power. For camera `No such device` errors, check USB disconnections, power, bandwidth, and power-saving settings; reopen the client after reconnection. See [deployment details](docs/deployment_modes.md) (Chinese) for parameters and troubleshooting.
