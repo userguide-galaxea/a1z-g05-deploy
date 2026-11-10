@@ -166,7 +166,7 @@ python scripts/preview_cameras.py --config "$G05_COLLECT_CONFIG" --check-only --
 
 填写真实 `task_description`、`hdf5_cfg.task_name`、保存目录、采集条数 `num_episodes`、Leader 串口、Follower CAN 和相机路径；保存目录建议填绝对路径（相对路径以 `a1z-data-collect/` 为基准）。`single` 预览显示 Head（头部）、Wrist（腕部）；`dual` 显示 Head（头部）、Left Wrist（左腕）、Right Wrist（右腕），逐一核对实际安装位置。CAN 必须 UP，串口/视频设备须有访问权限。若提示权限不足，Ubuntu 可执行 `sudo usermod -aG dialout,video "$USER"`，退出系统登录后重新登录；设备使用其他权限规则时按其 udev 配置处理。Leader 首次使用先按 [a1z-t 说明](https://github.com/userguide-galaxea/a1z-t/blob/93235404adbb5b753da6fd4d62eccc60805cfeaa/README.md) 确认固件、舵机 ID 和夹爪校准。a1z-t 由 data-collect 内部子模块管理；双臂需要两个独立串口。复制其 `teleop_app/config.yaml` 到本地，按硬件选择 `a1z_t_version: EVT` 或 `PVT`，并在采集 YAML 的 `arm_cfg.leader_config_path` 填写该文件绝对路径（null 使用上游默认配置）。相机稳定、方向对应正确后关闭预览，再启动采集。切换模式时另存对应配置，`cp -n` 不会覆盖旧文件。
 
-若 CAN 接口尚未 UP，确认没有程序占用后设置；双臂对第二个接口重复执行。接口不存在时先按 [SDK 说明](https://github.com/userguide-galaxea/GALAXEA-A1Z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md) 安装对应适配器驱动：
+若 CAN 接口尚未 UP，确认没有程序占用后设置；双臂对第二个接口重复执行。接口不存在时先按 [SDK 说明](https://github.com/userguide-galaxea/galaxea_a1z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md) 安装对应适配器驱动：
 
 ```bash
 read -r -p '要配置的 CAN 接口（如 can0）: ' A1Z_CAN

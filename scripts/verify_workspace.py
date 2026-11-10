@@ -51,7 +51,7 @@ def main():
         elif folder == LEADER:
             errors.append(f"Version mismatch: {folder} is neither fetched main nor the tested fallback")
         elif folder == SDK:
-            selected = git_output(LEADER, "rev-parse", "HEAD:GALAXEA-A1Z")
+            selected = git_output(LEADER, "rev-parse", "HEAD:galaxea_a1z")
             if actual != selected:
                 errors.append(f"Version mismatch: {folder} must match the selected A1Z-T gitlink")
             else:
@@ -60,7 +60,7 @@ def main():
             errors.append(f"Version mismatch: {folder}")
         else:
             print(f"OK {folder} {expected[:12]}")
-    sdk = ROOT / "a1z-data-collect/a1z-t/GALAXEA-A1Z"
+    sdk = ROOT / "a1z-data-collect/a1z-t/galaxea_a1z"
     if not (sdk / "a1z/__init__.py").is_file():
         errors.append("Nested SDK is missing; run python3 scripts/bootstrap.py")
     memory_config = ROOT / "GalaxeaVLA/configs/model/g05_mem.yaml"

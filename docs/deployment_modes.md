@@ -39,7 +39,7 @@ python scripts/preview_cameras.py --config "$HOME/a1z-local/client_${ARM_MODE}.j
 
 `single` 填写 `can_channel`、`camera_head` 和 `camera_wrist`；`dual` 填写 `left_can`、`right_can`、`camera_head`、`camera_left_wrist` 和 `camera_right_wrist`。核对实际安装位置，不按设备编号猜对应关系。相机预览只打开相机；确认画面顺序、视角、分辨率和曝光与采集一致，关闭预览后继续。
 
-`image_size` 是实际 `[宽,高]`，`control_frequency` 与训练数据 FPS 一致，`task` 使用实际任务描述。CAN 接口须 UP，配置方法见 [SDK 说明](https://github.com/userguide-galaxea/GALAXEA-A1Z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md)。本机模型服务和客户端默认使用 `127.0.0.1:8765`。
+`image_size` 是实际 `[宽,高]`，`control_frequency` 与训练数据 FPS 一致，`task` 使用实际任务描述。CAN 接口须 UP，配置方法见 [SDK 说明](https://github.com/userguide-galaxea/galaxea_a1z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md)。本机模型服务和客户端默认使用 `127.0.0.1:8765`。
 
 ```bash
 # 合成观测：不打开设备，检查模型响应和动作布局。

@@ -168,7 +168,7 @@ Set a real `task_description`, `hdf5_cfg.task_name`, output directory, episode c
 
 CAN interfaces must be UP, and the user must have access to serial/video devices. For permission errors on Ubuntu, run `sudo usermod -aG dialout,video "$USER"`, log out of the desktop/session, and log in again; use the appropriate udev rules for devices with different permissions. Before first use, follow the [a1z-t guide](https://github.com/userguide-galaxea/a1z-t/blob/93235404adbb5b753da6fd4d62eccc60805cfeaa/README.md) to check firmware, servo IDs, and gripper calibration. a1z-t remains a nested submodule managed by data-collect; dual mode requires two independent serial ports. Copy its `teleop_app/config.yaml` locally, choose `a1z_t_version: EVT` or `PVT` for your hardware, and set `arm_cfg.leader_config_path` in the collection YAML to that absolute path (null uses the upstream default). Close the preview before collection. Use separate configuration files when switching layouts; `cp -n` preserves existing files.
 
-If a CAN interface is not UP, configure it after confirming no application is using it. Repeat for the second interface in dual mode. If an interface is missing, first install the appropriate adapter driver following the [SDK guide](https://github.com/userguide-galaxea/GALAXEA-A1Z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md):
+If a CAN interface is not UP, configure it after confirming no application is using it. Repeat for the second interface in dual mode. If an interface is missing, first install the appropriate adapter driver following the [SDK guide](https://github.com/userguide-galaxea/galaxea_a1z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md):
 
 ```bash
 read -r -p 'CAN interface to configure (e.g. can0): ' A1Z_CAN

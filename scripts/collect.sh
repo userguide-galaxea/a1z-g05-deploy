@@ -99,5 +99,5 @@ fi
 [[ -t 0 ]] || { echo "Interactive terminal required before enabling the follower arm(s)" >&2; exit 2; }
 echo "Collection may move the follower arm(s). Confirm the workspace is clear and emergency stop is available." >&2
 cd "$A1Z_ROOT/a1z-data-collect"
-export PYTHONPATH="$A1Z_ROOT/a1z-data-collect/a1z-t/GALAXEA-A1Z:$A1Z_ROOT/a1z-data-collect/a1z-t:$PWD${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$A1Z_ROOT/a1z-data-collect/a1z-t/galaxea_a1z:$A1Z_ROOT/a1z-data-collect/a1z-t:$PWD${PYTHONPATH:+:$PYTHONPATH}"
 "$PYTHON_BIN" -m "$MODULE" "config_file=$CONFIG" "$@"
