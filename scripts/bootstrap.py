@@ -2,7 +2,8 @@
 # This file is part of G05_A1Z, licensed under the Galaxea Dynamics A1Z License Agreement.
 # See LICENSE.txt in the project root; upstream components retain their applicable licenses.
 
-"""Initialize pinned upstream sources and apply the tracked G05_A1Z adaptations."""
+"""Initialize upstream sources and apply the tracked G05_A1Z adaptations."""
+import argparse
 from pathlib import Path
 import json
 import hashlib
@@ -11,38 +12,73 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPONENTS = ("a1z-data-collect", "GalaxeaVLA")
-NESTED_COMPONENTS = (
-    ("a1z-data-collect", "a1z-t"),
-    ("a1z-data-collect/a1z-t", "GALAXEA-A1Z"),
-)
+LEADER = "a1z-data-collect/a1z-t"
+SDK = f"{LEADER}/GALAXEA-A1Z"
+LEADER_MAIN = "refs/remotes/origin/main"
 
 
 def git(*args, check=True):
-    return subprocess.run(["git", "-c", "fetch.recurseSubmodules=false", "-C", str(ROOT), *args], check=check,
+    return subprocess.run(["git", "-c", "fetch.recurseSubmodules=false",
+                           "-c", "submodule.recurse=false", "-C", str(ROOT), *args], check=check,
                           text=True, capture_output=True)
 
 
+def require_clean(folder):
+    if git("-C", folder, "status", "--porcelain", "--ignore-submodules=all").stdout.strip():
+        raise RuntimeError(f"Local edits found in {folder}; preserve them before updating")
+
+
+def init_leader(versions, tested):
+    parent, child = LEADER.rsplit("/", 1)
+    git("-C", parent, "submodule", "sync", "--", child)
+    if not (ROOT / LEADER / ".git").exists():
+        git("-C", parent, "submodule", "update", "--init", "--checkout", "--", child)
+    if tested:
+        revision = versions[LEADER]
+        if git("-C", LEADER, "cat-file", "-e", revision + "^{commit}", check=False).returncode:
+            git("-C", LEADER, "fetch", "--no-tags", "origin", revision)
+    else:
+        fetched = git("-C", LEADER, "fetch", "--no-tags", "origin",
+                      f"+refs/heads/main:{LEADER_MAIN}", check=False)
+        if fetched.returncode:
+            raise RuntimeError(f"Cannot fetch A1Z-T main; retry with --tested-a1z-t.\n{fetched.stderr.strip()}")
+        revision = git("-C", LEADER, "rev-parse", LEADER_MAIN).stdout.strip()
+    sdk_name = SDK.rsplit("/", 1)[1]
+    entry = git("-C", LEADER, "ls-tree", revision, "--", sdk_name).stdout.split()
+    if len(entry) != 4 or entry[0] != "160000":
+        raise RuntimeError("Selected A1Z-T does not declare the expected SDK submodule; retry with --tested-a1z-t.")
+    sdk_revision = entry[2]
+    if tested and sdk_revision != versions[SDK]:
+        raise RuntimeError("The tested A1Z-T and SDK commits in versions.json do not match")
+    leader_changed = git("-C", LEADER, "rev-parse", "HEAD").stdout.strip() != revision
+    if leader_changed:
+        require_clean(LEADER)
+    if (ROOT / SDK / ".git").exists() and (
+        leader_changed or git("-C", SDK, "rev-parse", "HEAD").stdout.strip() != sdk_revision
+    ):
+        require_clean(SDK)
+    if leader_changed:
+        git("-C", LEADER, "checkout", "--detach", revision)
+    git("-C", LEADER, "submodule", "sync", "--", sdk_name)
+    git("-C", LEADER, "submodule", "update", "--init", "--checkout", "--", sdk_name)
+    if git("-C", SDK, "rev-parse", "HEAD").stdout.strip() != sdk_revision:
+        raise RuntimeError(f"SDK version mismatch: expected {sdk_revision} from A1Z-T")
+    mode = "tested commit" if tested else "origin/main"
+    print(f"A1Z-T ({mode}): {revision}\nA1Z SDK: {sdk_revision}")
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tested-a1z-t", action="store_true", help="Use the tested A1Z-T commit instead of main")
+    args = parser.parse_args()
     git("submodule", "sync", "--", *COMPONENTS)
-    git("submodule", "update", "--init", "--", *COMPONENTS)
+    git("submodule", "update", "--init", "--checkout", "--", *COMPONENTS)
     versions = json.loads((ROOT / "versions.json").read_text())
-    # Initialize only the Leader and its SDK; both are pinned in the manifest.
-    for parent, child in NESTED_COMPONENTS:
-        git("-C", parent, "submodule", "sync", "--", child)
-        git("-C", parent, "submodule", "update", "--init", "--", child)
-        folder = f"{parent}/{child}"
-        revision = versions[folder]
-        if git("-C", folder, "rev-parse", "HEAD").stdout.strip() != revision:
-            if git("-C", folder, "status", "--porcelain").stdout.strip():
-                raise RuntimeError(f"Local edits found in {folder}; preserve them before updating")
-            if git("-C", folder, "cat-file", "-e", revision + "^{commit}", check=False).returncode:
-                git("-C", folder, "fetch", "origin", revision)
-            git("-C", folder, "checkout", "--detach", revision)
-    folders = (*COMPONENTS, *(f"{parent}/{child}" for parent, child in NESTED_COMPONENTS))
-    for name in folders:
+    for name in COMPONENTS:
         actual = git("-C", name, "rev-parse", "HEAD").stdout.strip()
         if actual != versions[name]:
             raise RuntimeError(f"Pinned version mismatch for {name}: {actual}")
+    init_leader(versions, args.tested_a1z_t)
     # Replace the upstream machine path only in the unchanged pinned config.
     memory_config = ROOT / "GalaxeaVLA/configs/model/g05_mem.yaml"
     if memory_config.is_file() and hashlib.sha256(memory_config.read_bytes()).hexdigest() == "b4514cb901c355bcbe33fb1fc9553e24b1ee82218e47b2bcd963e160cb35dc6f":

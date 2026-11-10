@@ -9,6 +9,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from bootstrap import LEADER, LEADER_MAIN, SDK
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -42,6 +44,18 @@ def main():
                 errors.append(f"Submodule not initialized: {folder}; run python3 scripts/bootstrap.py")
             else:
                 print(f"OK {folder} snapshot (baseline {expected[:12]})")
+        elif folder == LEADER and actual == expected:
+            print(f"OK {folder} tested fallback {actual}")
+        elif folder == LEADER and actual == git_output(LEADER, "rev-parse", LEADER_MAIN):
+            print(f"OK {folder} fetched main {actual}")
+        elif folder == LEADER:
+            errors.append(f"Version mismatch: {folder} is neither fetched main nor the tested fallback")
+        elif folder == SDK:
+            selected = git_output(LEADER, "rev-parse", "HEAD:GALAXEA-A1Z")
+            if actual != selected:
+                errors.append(f"Version mismatch: {folder} must match the selected A1Z-T gitlink")
+            else:
+                print(f"OK {folder} {actual} (from A1Z-T)")
         elif actual != expected:
             errors.append(f"Version mismatch: {folder}")
         else:
@@ -52,7 +66,7 @@ def main():
     memory_config = ROOT / "GalaxeaVLA/configs/model/g05_mem.yaml"
     if memory_config.is_file() and hashlib.sha256(memory_config.read_bytes()).hexdigest() == "b4514cb901c355bcbe33fb1fc9553e24b1ee82218e47b2bcd963e160cb35dc6f":
         errors.append("Upstream checkpoint path is not configured; run python3 scripts/bootstrap.py")
-    # Submodules normally use detached HEAD; verify their pinned commits above.
+    # Submodules normally use detached HEAD; check the integration patches too.
     series = json.loads((ROOT / "patches/series.json").read_text())
     if isinstance(series, dict):
         series = series["patches"]

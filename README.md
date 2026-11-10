@@ -39,7 +39,16 @@ python3 scripts/bootstrap.py
 python3 scripts/verify_workspace.py
 ```
 
-bootstrap 会按 `versions.json` 初始化固定版本并应用补丁；Leader 和 SDK 统一使用 data-collect 内嵌引用：`a1z-data-collect/a1z-t/GALAXEA-A1Z`；版本由该清单统一固定。此时提示权重未下载是正常的；不要单独更新子模块。
+`bootstrap.py` 固定采集仓库和 GalaxeaVLA 的版本并应用补丁；默认拉取内嵌 A1Z‑T 的最新 `main`，SDK 使用该 A1Z‑T 提交引用的版本。此时提示权重未下载是正常的。
+
+如果最新 `main` 不可用，可回退到已验证的 A1Z‑T 提交 [`93235404adbb5b753da6fd4d62eccc60805cfeaa`](https://github.com/userguide-galaxea/a1z-t/commit/93235404adbb5b753da6fd4d62eccc60805cfeaa)，配套 SDK 为 `156af498a947a830ca38efff4dd08fd2da96a200`。在仓库根目录运行：
+
+```bash
+python3 scripts/bootstrap.py --tested-a1z-t
+python3 scripts/verify_workspace.py
+```
+
+回退时，第 2 节的设备环境安装命令也要用 `bash scripts/setup_robot.sh --tested-a1z-t`。若已有 `g05-robot`，先停止采集和推理客户端，再激活该环境执行。后续重跑安装时保留该参数；去掉它即可恢复跟随 `main`。检查脚本会显示实际使用的 A1Z‑T 和 SDK 提交。
 
 ## 2. 安装环境
 
@@ -179,7 +188,7 @@ bash scripts/collect.sh "$ARM_MODE" --check
 bash scripts/collect.sh "$ARM_MODE"
 ```
 
-使用固定版本 data-collect / a1z-t。**S 开始、E 保存、R 丢弃重录、Q 退出**；停止不自动回零。先在现场确认运动范围和急停，再采少量数据回放；确认相机、动作、夹爪和任务正常后批量采集。不要同时运行其他遥操或推理客户端。
+使用第 1 节安装的 data-collect / a1z-t。**S 开始、E 保存、R 丢弃重录、Q 退出**；停止不自动回零。先在现场确认运动范围和急停，再采少量数据回放；确认相机、动作、夹爪和任务正常后批量采集。不要同时运行其他遥操或推理客户端。
 
 ### 4.3 采集后检查数据
 

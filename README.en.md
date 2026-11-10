@@ -39,7 +39,16 @@ python3 scripts/bootstrap.py
 python3 scripts/verify_workspace.py
 ```
 
-Bootstrap initializes the versions pinned in `versions.json` and applies patches. The Leader and SDK use data-collect’s nested sources at `a1z-data-collect/a1z-t/GALAXEA-A1Z`, with versions pinned by that manifest. Missing-model notices are expected before downloading weights. Do not independently update submodules.
+`bootstrap.py` checks out the pinned collector and GalaxeaVLA revisions and applies the integration patches. By default it fetches the latest `main` of the nested A1Z-T submodule and checks out the SDK revision referenced by that A1Z-T commit. Missing-model notices are expected before downloading weights.
+
+If the latest `main` does not work, use the tested A1Z-T commit [`93235404adbb5b753da6fd4d62eccc60805cfeaa`](https://github.com/userguide-galaxea/a1z-t/commit/93235404adbb5b753da6fd4d62eccc60805cfeaa) and its SDK commit `156af498a947a830ca38efff4dd08fd2da96a200`. From the repository root:
+
+```bash
+python3 scripts/bootstrap.py --tested-a1z-t
+python3 scripts/verify_workspace.py
+```
+
+For the fallback, also use `bash scripts/setup_robot.sh --tested-a1z-t` for the robot environment in Section 2. If `g05-robot` is already installed, stop the collector and inference client before activating that environment and running the command. Keep the flag on subsequent setup runs to stay on the tested commit; omit it to follow `main` again. The verifier prints both checked-out commit IDs.
 
 ## 2. Install environments
 
@@ -181,7 +190,7 @@ bash scripts/collect.sh "$ARM_MODE" --check
 bash scripts/collect.sh "$ARM_MODE"
 ```
 
-Use the pinned data-collect / a1z-t version. **S starts, E saves, R discards and retries, Q exits**. Stopping does not automatically home the arms. Confirm the workspace and emergency stop are ready, then collect and inspect a few episodes before collecting a larger dataset. Check cameras, actions, gripper behavior, and task text. Do not run another teleoperation or inference client at the same time.
+Use the data-collect / a1z-t sources set up in Section 1. **S starts, E saves, R discards and retries, Q exits**. Stopping does not automatically home the arms. Confirm the workspace and emergency stop are ready, then collect and inspect a few episodes before collecting a larger dataset. Check cameras, actions, gripper behavior, and task text. Do not run another teleoperation or inference client at the same time.
 
 ### 4.3 Inspect collected data
 
