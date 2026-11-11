@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from bootstrap import LEADER, LEADER_MAIN, SDK
+from bootstrap import COLLECTOR, LEADER, LEADER_MAIN, MAIN_REF, SDK
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,7 +41,7 @@ def main():
         actual = git_output(folder, "rev-parse", "HEAD")
         if actual is None:
             if folder != "a1z_g05_deploy":
-                errors.append(f"Submodule not initialized: {folder}; run python3 scripts/bootstrap.py")
+                errors.append(f"Source not initialized: {folder}; run python3 scripts/bootstrap.py")
             else:
                 print(f"OK {folder} snapshot (baseline {expected[:12]})")
         elif folder == LEADER and actual == expected:
@@ -50,12 +50,18 @@ def main():
             print(f"OK {folder} fetched main {actual}")
         elif folder == LEADER:
             errors.append(f"Version mismatch: {folder} is neither fetched main nor the tested fallback")
+        elif folder == COLLECTOR and actual == expected:
+            print(f"OK {folder} tested fallback {actual}")
+        elif folder == COLLECTOR and actual == git_output(COLLECTOR, "rev-parse", MAIN_REF):
+            print(f"OK {folder} fetched main {actual}")
+        elif folder == COLLECTOR:
+            errors.append(f"Version mismatch: {folder} is neither fetched main nor the tested fallback")
+        elif folder == SDK and actual == expected:
+            print(f"OK {folder} tested fallback {actual}")
+        elif folder == SDK and actual == git_output(SDK, "rev-parse", MAIN_REF):
+            print(f"OK {folder} fetched main {actual}")
         elif folder == SDK:
-            selected = git_output(LEADER, "rev-parse", "HEAD:galaxea_a1z")
-            if actual != selected:
-                errors.append(f"Version mismatch: {folder} must match the selected A1Z-T gitlink")
-            else:
-                print(f"OK {folder} {actual} (from A1Z-T)")
+            errors.append(f"Version mismatch: {folder} is neither fetched main nor the tested fallback")
         elif actual != expected:
             errors.append(f"Version mismatch: {folder}")
         else:

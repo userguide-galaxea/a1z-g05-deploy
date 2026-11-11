@@ -11,10 +11,12 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPONENTS = ("a1z-data-collect", "GalaxeaVLA")
-LEADER = "a1z-data-collect/a1z-t"
+COLLECTOR = "a1z-data-collect"
+PINNED = ("GalaxeaVLA",)
+LEADER = f"{COLLECTOR}/a1z-t"
 SDK = f"{LEADER}/galaxea_a1z"
-LEADER_MAIN = "refs/remotes/origin/main"
+MAIN_REF = "refs/remotes/origin/main"
+LEADER_MAIN = MAIN_REF
 
 
 def git(*args, check=True):
@@ -28,11 +30,63 @@ def require_clean(folder):
         raise RuntimeError(f"Local edits found in {folder}; preserve them before updating")
 
 
+def resolve_main(folder, label):
+    """Fetch the tracked main branch of a component and return its commit."""
+    fetched = git("-C", folder, "fetch", "--no-tags", "origin",
+                  f"+refs/heads/main:{MAIN_REF}", check=False)
+    if fetched.returncode:
+        raise RuntimeError(f"Cannot fetch {label} main; retry with --tested.\n{fetched.stderr.strip()}")
+    return git("-C", folder, "rev-parse", MAIN_REF).stdout.strip()
+
+
+COLLECTOR_PATCH = "patches/a1z-data-collect-integration.patch"
+COLLECTOR_URL = "https://github.com/userguide-galaxea/a1z-data-collect.git"
+LEADER_URL = "https://github.com/userguide-galaxea/a1z-t.git"
+SDK_URL = "https://github.com/userguide-galaxea/galaxea_a1z.git"
+
+
+def ensure_clone(path, url):
+    """Clone a first-party dependency once; these are plain clones, not submodules."""
+    if (ROOT / path / ".git").exists():
+        return False
+    git("clone", "--branch", "main", url, str(path))
+    return True
+
+
+def collector_patch_applied():
+    return git("-C", COLLECTOR, "apply", "--reverse", "--check", str(ROOT / COLLECTOR_PATCH),
+               check=False).returncode == 0
+
+
+def init_collector(versions, tested):
+    """Follow a1z-data-collect main, or fall back to the tested commit."""
+    ensure_clone(COLLECTOR, COLLECTOR_URL)
+    if tested:
+        revision = versions[COLLECTOR]
+        if git("-C", COLLECTOR, "cat-file", "-e", revision + "^{commit}", check=False).returncode:
+            git("-C", COLLECTOR, "fetch", "--no-tags", "origin", revision)
+    else:
+        revision = resolve_main(COLLECTOR, "A1Z data-collect")
+    if git("-C", COLLECTOR, "rev-parse", "HEAD").stdout.strip() != revision:
+        # The integration patch is reapplied below, so undo it before switching.
+        patch_was_applied = collector_patch_applied()
+        if patch_was_applied:
+            git("-C", COLLECTOR, "apply", "--reverse", str(ROOT / COLLECTOR_PATCH))
+        try:
+            require_clean(COLLECTOR)
+        except RuntimeError:
+            # Restore the workspace we touched before reporting the conflict.
+            if patch_was_applied:
+                git("-C", COLLECTOR, "apply", str(ROOT / COLLECTOR_PATCH))
+            raise
+        git("-C", COLLECTOR, "checkout", "--detach", revision)
+    mode = "tested commit" if tested else "origin/main"
+    print(f"A1Z data-collect ({mode}): {revision}")
+    return revision
+
+
 def init_leader(versions, tested):
-    parent, child = LEADER.rsplit("/", 1)
-    git("-C", parent, "submodule", "sync", "--", child)
-    if not (ROOT / LEADER / ".git").exists():
-        git("-C", parent, "submodule", "update", "--init", "--checkout", "--", child)
+    ensure_clone(LEADER, LEADER_URL)
     if tested:
         revision = versions[LEADER]
         if git("-C", LEADER, "cat-file", "-e", revision + "^{commit}", check=False).returncode:
@@ -43,42 +97,48 @@ def init_leader(versions, tested):
         if fetched.returncode:
             raise RuntimeError(f"Cannot fetch A1Z-T main; retry with --tested-a1z-t.\n{fetched.stderr.strip()}")
         revision = git("-C", LEADER, "rev-parse", LEADER_MAIN).stdout.strip()
-    sdk_name = SDK.rsplit("/", 1)[1]
-    entry = git("-C", LEADER, "ls-tree", revision, "--", sdk_name).stdout.split()
-    if len(entry) != 4 or entry[0] != "160000":
-        raise RuntimeError("Selected A1Z-T does not declare the expected SDK submodule; retry with --tested-a1z-t.")
-    sdk_revision = entry[2]
-    if tested and sdk_revision != versions[SDK]:
-        raise RuntimeError("The tested A1Z-T and SDK commits in versions.json do not match")
-    leader_changed = git("-C", LEADER, "rev-parse", "HEAD").stdout.strip() != revision
-    if leader_changed:
+    if git("-C", LEADER, "rev-parse", "HEAD").stdout.strip() != revision:
         require_clean(LEADER)
-    if (ROOT / SDK / ".git").exists() and (
-        leader_changed or git("-C", SDK, "rev-parse", "HEAD").stdout.strip() != sdk_revision
-    ):
-        require_clean(SDK)
-    if leader_changed:
         git("-C", LEADER, "checkout", "--detach", revision)
-    git("-C", LEADER, "submodule", "sync", "--", sdk_name)
-    git("-C", LEADER, "submodule", "update", "--init", "--checkout", "--", sdk_name)
-    if git("-C", SDK, "rev-parse", "HEAD").stdout.strip() != sdk_revision:
-        raise RuntimeError(f"SDK version mismatch: expected {sdk_revision} from A1Z-T")
     mode = "tested commit" if tested else "origin/main"
-    print(f"A1Z-T ({mode}): {revision}\nA1Z SDK: {sdk_revision}")
+    print(f"A1Z-T ({mode}): {revision}")
+    return revision
+
+
+def init_sdk(versions, tested):
+    """Clone and follow galaxea_a1z main, or fall back to the tested commit."""
+    ensure_clone(SDK, SDK_URL)
+    if tested:
+        revision = versions[SDK]
+        if git("-C", SDK, "cat-file", "-e", revision + "^{commit}", check=False).returncode:
+            git("-C", SDK, "fetch", "--no-tags", "origin", revision)
+    else:
+        revision = resolve_main(SDK, "A1Z SDK")
+    if git("-C", SDK, "rev-parse", "HEAD").stdout.strip() != revision:
+        require_clean(SDK)
+        git("-C", SDK, "checkout", "--detach", revision)
+    mode = "tested commit" if tested else "origin/main"
+    print(f"A1Z SDK ({mode}): {revision}")
+    return revision
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tested-a1z-t", action="store_true", help="Use the tested A1Z-T commit instead of main")
+    parser.add_argument("--tested", action="store_true",
+                        help="Use the tested commits from versions.json for a1z-data-collect and A1Z-T")
+    parser.add_argument("--tested-a1z-t", action="store_true",
+                        help="Use only the tested A1Z-T commit; keep a1z-data-collect on main")
     args = parser.parse_args()
-    git("submodule", "sync", "--", *COMPONENTS)
-    git("submodule", "update", "--init", "--checkout", "--", *COMPONENTS)
     versions = json.loads((ROOT / "versions.json").read_text())
-    for name in COMPONENTS:
+    git("submodule", "sync", "--", *PINNED)
+    git("submodule", "update", "--init", "--checkout", "--", *PINNED)
+    for name in PINNED:
         actual = git("-C", name, "rev-parse", "HEAD").stdout.strip()
         if actual != versions[name]:
-            raise RuntimeError(f"Pinned version mismatch for {name}: {actual}")
-    init_leader(versions, args.tested_a1z_t)
+            raise RuntimeError(f"Pinned version mismatch for {name}: {actual}; expected {versions[name]}")
+    init_collector(versions, args.tested)
+    init_leader(versions, args.tested or args.tested_a1z_t)
+    init_sdk(versions, args.tested or args.tested_a1z_t)
     # Replace the upstream machine path only in the unchanged pinned config.
     memory_config = ROOT / "GalaxeaVLA/configs/model/g05_mem.yaml"
     if memory_config.is_file() and hashlib.sha256(memory_config.read_bytes()).hexdigest() == "b4514cb901c355bcbe33fb1fc9553e24b1ee82218e47b2bcd963e160cb35dc6f":
@@ -131,7 +191,8 @@ def main():
         elif git("-C", name, "apply", "--check", patch, check=False).returncode == 0:
             pending.append((name, patch))
         else:
-            raise RuntimeError(f"Patch conflict in {name}; preserve your local edits and resolve manually")
+            raise RuntimeError(f"Patch conflict in {name}; upstream may have changed. "
+                               "Retry with --tested, or preserve your local edits and resolve manually")
     for name, patch in pending:
         git("-C", name, "apply", patch)
         print(f"Applied: {name}")

@@ -39,16 +39,34 @@ python3 scripts/bootstrap.py
 python3 scripts/verify_workspace.py
 ```
 
-`bootstrap.py` checks out the pinned collector and GalaxeaVLA revisions and applies the integration patches. By default it fetches the latest `main` of the nested A1Z-T submodule and checks out the SDK revision referenced by that A1Z-T commit. Missing-model notices are expected before downloading weights.
+`bootstrap.py` pins GalaxeaVLA and applies the integration patches. `a1z-data-collect` and its nested A1Z-T are no longer submodules: the script clones them when the directories are missing and updates them to upstream `main` when present, so child updates need no change in this repository. The `galaxea_a1z` SDK is cloned the same way and also follows `main`. Missing-model notices are expected before downloading weights.
 
-If the latest `main` does not work, use the tested A1Z-T commit [`93235404adbb5b753da6fd4d62eccc60805cfeaa`](https://github.com/userguide-galaxea/a1z-t/commit/93235404adbb5b753da6fd4d62eccc60805cfeaa) and its SDK commit `156af498a947a830ca38efff4dd08fd2da96a200`. From the repository root:
+To prepare them manually instead (all three paths are listed in `.gitignore`):
 
 ```bash
-python3 scripts/bootstrap.py --tested-a1z-t
+git clone --branch main https://github.com/userguide-galaxea/a1z-data-collect.git a1z-data-collect
+git clone --branch main https://github.com/userguide-galaxea/a1z-t.git a1z-data-collect/a1z-t
+git clone --branch main https://github.com/userguide-galaxea/galaxea_a1z.git a1z-data-collect/a1z-t/galaxea_a1z
+```
+
+For routine updates just re-run `python3 scripts/bootstrap.py`; it moves all three dependencies to the latest `main`, reverses the old patch, and reapplies the integration patch.
+
+**The currently tested versions** are recorded in [versions.json](versions.json): `a1z-data-collect` `3ff87bf3f341240ea719781a69c3b0f1b2dcd4f9`, A1Z-T `61f19bb0af7194b77a22991b795e389550815bf8`, SDK `156af498a947a830ca38efff4dd08fd2da96a200`. If a newer upstream `main` causes a patch conflict or runtime problem, roll the whole combination back:
+
+```bash
+python3 scripts/bootstrap.py --tested
 python3 scripts/verify_workspace.py
 ```
 
-For the fallback, also use `bash scripts/setup_robot.sh --tested-a1z-t` for the robot environment in Section 2. If `g05-robot` is already installed, stop the collector and inference client before activating that environment and running the command. Keep the flag on subsequent setup runs to stay on the tested commit; omit it to follow `main` again. The verifier prints both checked-out commit IDs.
+Use `--tested-a1z-t` to revert only A1Z-T while `a1z-data-collect` keeps following `main`. For the fallback, also pass the same flag to the robot environment setup in Section 2, e.g. `bash scripts/setup_robot.sh --tested`. If `g05-robot` already exists, stop the collector and inference client before activating that environment. Keep the flag on subsequent setup runs; omit it to follow `main` again.
+
+**To lock a single component to a historical commit**, run `python3 scripts/bootstrap.py` first, then switch that component manually:
+
+```bash
+git -C a1z-data-collect checkout <commit>        # or a1z-data-collect/a1z-t
+```
+
+Do not run `bootstrap.py` again afterwards, because it re-checkouts according to the selected mode; reinstall the affected component with `pip install -e` and confirm with `verify_workspace.py`. The verifier prints the actual commit of every component.
 
 ## 2. Install environments
 
@@ -166,7 +184,7 @@ python scripts/preview_cameras.py --config "$G05_COLLECT_CONFIG" --check-only --
 
 Set a real `task_description`, `hdf5_cfg.task_name`, output directory, episode count (`num_episodes`), Leader serial ports, Follower CAN interfaces, and camera paths. Prefer absolute output paths; relative paths are resolved from `a1z-data-collect/`. The preview shows Head and Wrist for `single`, or Head, Left Wrist, and Right Wrist for `dual`; verify each against its physical placement.
 
-CAN interfaces must be UP, and the user must have access to serial/video devices. For permission errors on Ubuntu, run `sudo usermod -aG dialout,video "$USER"`, log out of the desktop/session, and log in again; use the appropriate udev rules for devices with different permissions. Before first use, follow the [a1z-t guide](https://github.com/userguide-galaxea/a1z-t/blob/93235404adbb5b753da6fd4d62eccc60805cfeaa/README.md) to check firmware, servo IDs, and gripper calibration. a1z-t remains a nested submodule managed by data-collect; dual mode requires two independent serial ports. Copy its `teleop_app/config.yaml` locally, choose `a1z_t_version: EVT` or `PVT` for your hardware, and set `arm_cfg.leader_config_path` in the collection YAML to that absolute path (null uses the upstream default). Close the preview before collection. Use separate configuration files when switching layouts; `cp -n` preserves existing files.
+CAN interfaces must be UP, and the user must have access to serial/video devices. For permission errors on Ubuntu, run `sudo usermod -aG dialout,video "$USER"`, log out of the desktop/session, and log in again; use the appropriate udev rules for devices with different permissions. Before first use, follow the [a1z-t guide](https://github.com/userguide-galaxea/a1z-t/blob/61f19bb0af7194b77a22991b795e389550815bf8/README.md) to check firmware, servo IDs, and gripper calibration. bootstrap clones a1z-t into a1z-data-collect/ (no longer a submodule); dual mode requires two independent serial ports. Copy its `teleop_app/config.yaml` locally, choose `a1z_t_version: EVT` or `PVT` for your hardware, and set `arm_cfg.leader_config_path` in the collection YAML to that absolute path (null uses the upstream default). Close the preview before collection. Use separate configuration files when switching layouts; `cp -n` preserves existing files.
 
 If a CAN interface is not UP, configure it after confirming no application is using it. Repeat for the second interface in dual mode. If an interface is missing, first install the appropriate adapter driver following the [SDK guide](https://github.com/userguide-galaxea/galaxea_a1z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md):
 
