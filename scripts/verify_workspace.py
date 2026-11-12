@@ -66,7 +66,7 @@ def main():
             errors.append(f"Version mismatch: {folder}")
         else:
             print(f"OK {folder} {expected[:12]}")
-    sdk = ROOT / "a1z-data-collect/a1z-t/galaxea_a1z"
+    sdk = ROOT / "a1z_data_collection/a1z-t/galaxea_a1z"
     if not (sdk / "a1z/__init__.py").is_file():
         errors.append("Nested SDK is missing; run python3 scripts/bootstrap.py")
     memory_config = ROOT / "GalaxeaVLA/configs/model/g05_mem.yaml"

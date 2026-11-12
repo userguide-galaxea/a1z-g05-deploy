@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-COLLECTOR = "a1z-data-collect"
+COLLECTOR = "a1z_data_collection"
 PINNED = ("GalaxeaVLA",)
 LEADER = f"{COLLECTOR}/a1z-t"
 SDK = f"{LEADER}/galaxea_a1z"
@@ -40,7 +40,7 @@ def resolve_main(folder, label):
 
 
 COLLECTOR_PATCH = "patches/a1z-data-collect-integration.patch"
-COLLECTOR_URL = "https://github.com/userguide-galaxea/a1z-data-collect.git"
+COLLECTOR_URL = "https://github.com/userguide-galaxea/a1z_data_collection.git"
 LEADER_URL = "https://github.com/userguide-galaxea/a1z-t.git"
 SDK_URL = "https://github.com/userguide-galaxea/galaxea_a1z.git"
 
@@ -59,7 +59,9 @@ def collector_patch_applied():
 
 
 def init_collector(versions, tested):
-    """Follow a1z-data-collect main, or fall back to the tested commit."""
+    """Follow a1z_data_collection main, or fall back to the tested commit."""
+    if (ROOT / "a1z-data-collect").exists():
+        raise RuntimeError("Legacy a1z-data-collect directory found; preserve your work and rename it to a1z_data_collection before continuing")
     ensure_clone(COLLECTOR, COLLECTOR_URL)
     if tested:
         revision = versions[COLLECTOR]
@@ -125,9 +127,9 @@ def init_sdk(versions, tested):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tested", action="store_true",
-                        help="Use the tested commits from versions.json for a1z-data-collect and A1Z-T")
+                        help="Use the tested commits from versions.json for a1z_data_collection and A1Z-T")
     parser.add_argument("--tested-a1z-t", action="store_true",
-                        help="Use only the tested A1Z-T commit; keep a1z-data-collect on main")
+                        help="Use only the tested A1Z-T commit; keep a1z_data_collection on main")
     args = parser.parse_args()
     versions = json.loads((ROOT / "versions.json").read_text())
     git("submodule", "sync", "--", *PINNED)

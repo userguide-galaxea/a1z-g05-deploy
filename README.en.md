@@ -33,37 +33,39 @@ uname -r
 nvidia-smi
 nvcc --version   # Model dependencies include CUDA extensions; prepare a compatible CUDA toolchain first
 df -h .
-git clone --branch main https://github.com/userguide-galaxea/a1z-g05-deploy.git G05_A1Z
+git clone --branch main https://github.com/userguide-galaxea/a1z_g05_deployment.git G05_A1Z
 cd G05_A1Z
 python3 scripts/bootstrap.py
 python3 scripts/verify_workspace.py
 ```
 
-`bootstrap.py` pins GalaxeaVLA and applies the integration patches. `a1z-data-collect` and its nested A1Z-T are no longer submodules: the script clones them when the directories are missing and updates them to upstream `main` when present, so child updates need no change in this repository. The `galaxea_a1z` SDK is cloned the same way and also follows `main`. Missing-model notices are expected before downloading weights.
+`bootstrap.py` pins GalaxeaVLA and applies the integration patches. `a1z_data_collection` and its nested A1Z-T are no longer submodules: the script clones them when the directories are missing and updates them to upstream `main` when present, so child updates need no change in this repository. The `galaxea_a1z` SDK is cloned the same way and also follows `main`. Missing-model notices are expected before downloading weights.
 
 To prepare them manually instead (all three paths are listed in `.gitignore`):
 
+When upgrading an existing workspace, preserve local changes and rename `a1z-data-collect` to `a1z_data_collection` first. If both directories exist, inspect and resolve them manually.
+
 ```bash
-git clone --branch main https://github.com/userguide-galaxea/a1z-data-collect.git a1z-data-collect
-git clone --branch main https://github.com/userguide-galaxea/a1z-t.git a1z-data-collect/a1z-t
-git clone --branch main https://github.com/userguide-galaxea/galaxea_a1z.git a1z-data-collect/a1z-t/galaxea_a1z
+git clone --branch main https://github.com/userguide-galaxea/a1z_data_collection.git a1z_data_collection
+git clone --branch main https://github.com/userguide-galaxea/a1z-t.git a1z_data_collection/a1z-t
+git clone --branch main https://github.com/userguide-galaxea/galaxea_a1z.git a1z_data_collection/a1z-t/galaxea_a1z
 ```
 
 For routine updates just re-run `python3 scripts/bootstrap.py`; it moves all three dependencies to the latest `main`, reverses the old patch, and reapplies the integration patch.
 
-**The currently tested versions** are recorded in [versions.json](versions.json): `a1z-data-collect` `3ff87bf3f341240ea719781a69c3b0f1b2dcd4f9`, A1Z-T `61f19bb0af7194b77a22991b795e389550815bf8`, SDK `156af498a947a830ca38efff4dd08fd2da96a200`. If a newer upstream `main` causes a patch conflict or runtime problem, roll the whole combination back:
+**The currently tested versions** are recorded in [versions.json](versions.json): `a1z_data_collection` `3ff87bf3f341240ea719781a69c3b0f1b2dcd4f9`, A1Z-T `61f19bb0af7194b77a22991b795e389550815bf8`, SDK `156af498a947a830ca38efff4dd08fd2da96a200`. If a newer upstream `main` causes a patch conflict or runtime problem, roll the whole combination back:
 
 ```bash
 python3 scripts/bootstrap.py --tested
 python3 scripts/verify_workspace.py
 ```
 
-Use `--tested-a1z-t` to revert only A1Z-T while `a1z-data-collect` keeps following `main`. For the fallback, also pass the same flag to the robot environment setup in Section 2, e.g. `bash scripts/setup_robot.sh --tested`. If `g05-robot` already exists, stop the collector and inference client before activating that environment. Keep the flag on subsequent setup runs; omit it to follow `main` again.
+Use `--tested-a1z-t` to revert only A1Z-T while `a1z_data_collection` keeps following `main`. For the fallback, also pass the same flag to the robot environment setup in Section 2, e.g. `bash scripts/setup_robot.sh --tested`. If `g05-robot` already exists, stop the collector and inference client before activating that environment. Keep the flag on subsequent setup runs; omit it to follow `main` again.
 
 **To lock a single component to a historical commit**, run `python3 scripts/bootstrap.py` first, then switch that component manually:
 
 ```bash
-git -C a1z-data-collect checkout <commit>        # or a1z-data-collect/a1z-t
+git -C a1z_data_collection checkout <commit>        # or a1z_data_collection/a1z-t
 ```
 
 Do not run `bootstrap.py` again afterwards, because it re-checkouts according to the selected mode; reinstall the affected component with `pip install -e` and confirm with `verify_workspace.py`. The verifier prints the actual commit of every component.
@@ -169,7 +171,7 @@ conda activate g05-robot
 export A1Z_PYTHON="$CONDA_PREFIX/bin/python"
 export ARM_MODE=single   # Use dual for two arms
 mkdir -p "$HOME/a1z-local"
-cp -n a1z-data-collect/a1z-t/teleop_app/config.yaml "$HOME/a1z-local/a1z-t.yaml"
+cp -n a1z_data_collection/a1z-t/teleop_app/config.yaml "$HOME/a1z-local/a1z-t.yaml"
 nano "$HOME/a1z-local/a1z-t.yaml"
 cp -n "configs/collect_${ARM_MODE}.example.yaml" "$HOME/a1z-local/collect_${ARM_MODE}.yaml"
 nano "$HOME/a1z-local/collect_${ARM_MODE}.yaml"
@@ -182,9 +184,9 @@ python scripts/preview_cameras.py --config "$G05_COLLECT_CONFIG"
 python scripts/preview_cameras.py --config "$G05_COLLECT_CONFIG" --check-only --duration 30
 ```
 
-Set a real `task_description`, `hdf5_cfg.task_name`, output directory, episode count (`num_episodes`), Leader serial ports, Follower CAN interfaces, and camera paths. Prefer absolute output paths; relative paths are resolved from `a1z-data-collect/`. The preview shows Head and Wrist for `single`, or Head, Left Wrist, and Right Wrist for `dual`; verify each against its physical placement.
+Set a real `task_description`, `hdf5_cfg.task_name`, output directory, episode count (`num_episodes`), Leader serial ports, Follower CAN interfaces, and camera paths. Prefer absolute output paths; relative paths are resolved from `a1z_data_collection/`. The preview shows Head and Wrist for `single`, or Head, Left Wrist, and Right Wrist for `dual`; verify each against its physical placement.
 
-CAN interfaces must be UP, and the user must have access to serial/video devices. For permission errors on Ubuntu, run `sudo usermod -aG dialout,video "$USER"`, log out of the desktop/session, and log in again; use the appropriate udev rules for devices with different permissions. Before first use, follow the [a1z-t guide](https://github.com/userguide-galaxea/a1z-t/blob/61f19bb0af7194b77a22991b795e389550815bf8/README.md) to check firmware, servo IDs, and gripper calibration. bootstrap clones a1z-t into a1z-data-collect/ (no longer a submodule); dual mode requires two independent serial ports. Copy its `teleop_app/config.yaml` locally, choose `a1z_t_version: EVT` or `PVT` for your hardware, and set `arm_cfg.leader_config_path` in the collection YAML to that absolute path (null uses the upstream default). Close the preview before collection. Use separate configuration files when switching layouts; `cp -n` preserves existing files.
+CAN interfaces must be UP, and the user must have access to serial/video devices. For permission errors on Ubuntu, run `sudo usermod -aG dialout,video "$USER"`, log out of the desktop/session, and log in again; use the appropriate udev rules for devices with different permissions. Before first use, follow the [a1z-t guide](https://github.com/userguide-galaxea/a1z-t/blob/61f19bb0af7194b77a22991b795e389550815bf8/README.md) to check firmware, servo IDs, and gripper calibration. bootstrap clones a1z-t into a1z_data_collection/ (no longer a submodule); dual mode requires two independent serial ports. Copy its `teleop_app/config.yaml` locally, choose `a1z_t_version: EVT` or `PVT` for your hardware, and set `arm_cfg.leader_config_path` in the collection YAML to that absolute path (null uses the upstream default). Close the preview before collection. Use separate configuration files when switching layouts; `cp -n` preserves existing files.
 
 If a CAN interface is not UP, configure it after confirming no application is using it. Repeat for the second interface in dual mode. If an interface is missing, first install the appropriate adapter driver following the [SDK guide](https://github.com/userguide-galaxea/galaxea_a1z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md):
 
@@ -217,7 +219,7 @@ Save the episode and wait for writing to finish. Inspect a complete episode; thi
 ```bash
 conda activate g05-robot
 read -r -p 'Full path to a saved episode_N.hdf5: ' A1Z_EPISODE
-python a1z-data-collect/tools/inspect_episode.py "$A1Z_EPISODE"
+python a1z_data_collection/tools/inspect_episode.py "$A1Z_EPISODE"
 ```
 
 The terminal reports task text, duration, sample rate, and joint/gripper ranges. It exports one MP4 per camera next to the HDF5 file. Open these videos in a player and check:

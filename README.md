@@ -33,37 +33,39 @@ uname -r
 nvidia-smi
 nvcc --version   # 模型依赖含 CUDA 扩展；需先准备匹配的 CUDA 编译工具链
 df -h .
-git clone --branch main https://github.com/userguide-galaxea/a1z-g05-deploy.git G05_A1Z
+git clone --branch main https://github.com/userguide-galaxea/a1z_g05_deployment.git G05_A1Z
 cd G05_A1Z
 python3 scripts/bootstrap.py
 python3 scripts/verify_workspace.py
 ```
 
-`bootstrap.py` 固定 GalaxeaVLA 的版本并应用集成补丁。`a1z-data-collect` 与内嵌的 A1Z‑T 不再是 submodule：目录不存在时脚本会自动 `git clone`，已存在时更新到上游 `main`，因此子仓库更新后不需要回父仓库做任何改动。`galaxea_a1z` SDK 同样单独 clone、跟随 `main`。此时提示权重未下载是正常的。
+`bootstrap.py` 固定 GalaxeaVLA 的版本并应用集成补丁。`a1z_data_collection` 与内嵌的 A1Z‑T 不再是 submodule：目录不存在时脚本会自动 `git clone`，已存在时更新到上游 `main`，因此子仓库更新后不需要回父仓库做任何改动。`galaxea_a1z` SDK 同样单独 clone、跟随 `main`。此时提示权重未下载是正常的。
 
 需要手动准备时，等价命令如下（三个目录都已加入 `.gitignore`）：
 
+升级已有工作区前，请先保存本地修改，并将原 `a1z-data-collect` 目录重命名为 `a1z_data_collection`；如果两个目录都存在，请先人工核对并处理。
+
 ```bash
-git clone --branch main https://github.com/userguide-galaxea/a1z-data-collect.git a1z-data-collect
-git clone --branch main https://github.com/userguide-galaxea/a1z-t.git a1z-data-collect/a1z-t
-git clone --branch main https://github.com/userguide-galaxea/galaxea_a1z.git a1z-data-collect/a1z-t/galaxea_a1z
+git clone --branch main https://github.com/userguide-galaxea/a1z_data_collection.git a1z_data_collection
+git clone --branch main https://github.com/userguide-galaxea/a1z-t.git a1z_data_collection/a1z-t
+git clone --branch main https://github.com/userguide-galaxea/galaxea_a1z.git a1z_data_collection/a1z-t/galaxea_a1z
 ```
 
 日常更新只需重跑 `python3 scripts/bootstrap.py`；它会把三处依赖更新到最新 `main`，反向应用旧补丁、再重放集成补丁。
 
-**当前测试过的版本**记录在 [versions.json](versions.json)：`a1z-data-collect` `3ff87bf3f341240ea719781a69c3b0f1b2dcd4f9`、A1Z‑T `61f19bb0af7194b77a22991b795e389550815bf8`、SDK `156af498a947a830ca38efff4dd08fd2da96a200`。上游 `main` 更新后如出现补丁冲突或运行异常，可整体回退到该组合：
+**当前测试过的版本**记录在 [versions.json](versions.json)：`a1z_data_collection` `3ff87bf3f341240ea719781a69c3b0f1b2dcd4f9`、A1Z‑T `61f19bb0af7194b77a22991b795e389550815bf8`、SDK `156af498a947a830ca38efff4dd08fd2da96a200`。上游 `main` 更新后如出现补丁冲突或运行异常，可整体回退到该组合：
 
 ```bash
 python3 scripts/bootstrap.py --tested
 python3 scripts/verify_workspace.py
 ```
 
-只回退 A1Z‑T（`a1z-data-collect` 仍跟随 `main`）时改用 `--tested-a1z-t`。回退时第 2 节的设备环境安装也要带同一参数，例如 `bash scripts/setup_robot.sh --tested`。若已有 `g05-robot`，先停止采集和推理客户端，再激活该环境执行。后续重跑安装时保留该参数；去掉它即可恢复跟随 `main`。
+只回退 A1Z‑T（`a1z_data_collection` 仍跟随 `main`）时改用 `--tested-a1z-t`。回退时第 2 节的设备环境安装也要带同一参数，例如 `bash scripts/setup_robot.sh --tested`。若已有 `g05-robot`，先停止采集和推理客户端，再激活该环境执行。后续重跑安装时保留该参数；去掉它即可恢复跟随 `main`。
 
 **单独锁定某个历史提交**时，先运行 `python3 scripts/bootstrap.py`，再手动切换该组件：
 
 ```bash
-git -C a1z-data-collect checkout <commit>        # 或 a1z-data-collect/a1z-t
+git -C a1z_data_collection checkout <commit>        # 或 a1z_data_collection/a1z-t
 ```
 
 手动切换后不要再运行 `bootstrap.py`（它会按所选模式重新检出），改用 `pip install -e` 重装受影响组件并运行 `verify_workspace.py` 确认。检查脚本会显示实际使用的各组件提交。
@@ -169,7 +171,7 @@ conda activate g05-robot
 export A1Z_PYTHON="$CONDA_PREFIX/bin/python"
 export ARM_MODE=single   # 双臂改为 dual
 mkdir -p "$HOME/a1z-local"
-cp -n a1z-data-collect/a1z-t/teleop_app/config.yaml "$HOME/a1z-local/a1z-t.yaml"
+cp -n a1z_data_collection/a1z-t/teleop_app/config.yaml "$HOME/a1z-local/a1z-t.yaml"
 nano "$HOME/a1z-local/a1z-t.yaml"
 cp -n "configs/collect_${ARM_MODE}.example.yaml" "$HOME/a1z-local/collect_${ARM_MODE}.yaml"
 nano "$HOME/a1z-local/collect_${ARM_MODE}.yaml"
@@ -182,7 +184,7 @@ python scripts/preview_cameras.py --config "$G05_COLLECT_CONFIG"
 python scripts/preview_cameras.py --config "$G05_COLLECT_CONFIG" --check-only --duration 30
 ```
 
-填写真实 `task_description`、`hdf5_cfg.task_name`、保存目录、采集条数 `num_episodes`、Leader 串口、Follower CAN 和相机路径；保存目录建议填绝对路径（相对路径以 `a1z-data-collect/` 为基准）。`single` 预览显示 Head（头部）、Wrist（腕部）；`dual` 显示 Head（头部）、Left Wrist（左腕）、Right Wrist（右腕），逐一核对实际安装位置。CAN 必须 UP，串口/视频设备须有访问权限。若提示权限不足，Ubuntu 可执行 `sudo usermod -aG dialout,video "$USER"`，退出系统登录后重新登录；设备使用其他权限规则时按其 udev 配置处理。Leader 首次使用先按 [a1z-t 说明](https://github.com/userguide-galaxea/a1z-t/blob/61f19bb0af7194b77a22991b795e389550815bf8/README.md) 确认固件、舵机 ID 和夹爪校准。a1z-t 由 bootstrap 单独 clone 到 a1z-data-collect/ 下（不再作为 submodule）；双臂需要两个独立串口。复制其 `teleop_app/config.yaml` 到本地，按硬件选择 `a1z_t_version: EVT` 或 `PVT`，并在采集 YAML 的 `arm_cfg.leader_config_path` 填写该文件绝对路径（null 使用上游默认配置）。相机稳定、方向对应正确后关闭预览，再启动采集。切换模式时另存对应配置，`cp -n` 不会覆盖旧文件。
+填写真实 `task_description`、`hdf5_cfg.task_name`、保存目录、采集条数 `num_episodes`、Leader 串口、Follower CAN 和相机路径；保存目录建议填绝对路径（相对路径以 `a1z_data_collection/` 为基准）。`single` 预览显示 Head（头部）、Wrist（腕部）；`dual` 显示 Head（头部）、Left Wrist（左腕）、Right Wrist（右腕），逐一核对实际安装位置。CAN 必须 UP，串口/视频设备须有访问权限。若提示权限不足，Ubuntu 可执行 `sudo usermod -aG dialout,video "$USER"`，退出系统登录后重新登录；设备使用其他权限规则时按其 udev 配置处理。Leader 首次使用先按 [a1z-t 说明](https://github.com/userguide-galaxea/a1z-t/blob/61f19bb0af7194b77a22991b795e389550815bf8/README.md) 确认固件、舵机 ID 和夹爪校准。a1z-t 由 bootstrap 单独 clone 到 a1z_data_collection/ 下（不再作为 submodule）；双臂需要两个独立串口。复制其 `teleop_app/config.yaml` 到本地，按硬件选择 `a1z_t_version: EVT` 或 `PVT`，并在采集 YAML 的 `arm_cfg.leader_config_path` 填写该文件绝对路径（null 使用上游默认配置）。相机稳定、方向对应正确后关闭预览，再启动采集。切换模式时另存对应配置，`cp -n` 不会覆盖旧文件。
 
 若 CAN 接口尚未 UP，确认没有程序占用后设置；双臂对第二个接口重复执行。接口不存在时先按 [SDK 说明](https://github.com/userguide-galaxea/galaxea_a1z/blob/156af498a947a830ca38efff4dd08fd2da96a200/README.md) 安装对应适配器驱动：
 
@@ -215,7 +217,7 @@ bash scripts/collect.sh "$ARM_MODE"
 ```bash
 conda activate g05-robot
 read -r -p '已保存的 episode_N.hdf5 完整路径: ' A1Z_EPISODE
-python a1z-data-collect/tools/inspect_episode.py "$A1Z_EPISODE"
+python a1z_data_collection/tools/inspect_episode.py "$A1Z_EPISODE"
 ```
 
 终端显示任务、时长、采样率、关节与夹爪范围，并在 HDF5 同目录生成各相机 MP4，用视频播放器打开检查：

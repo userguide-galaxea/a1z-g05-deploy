@@ -3,7 +3,7 @@ See LICENSE.txt in the project root; upstream components retain their applicable
 
 # A1Z HDF5 → LeRobot v2.1
 
-适用于本仓库固定版本的 `a1z-data-collect`：双臂 14 维、三路 JPEG 相机、`arm/state`、`arm/action` 和各路单调时间戳。在 Linux PC 离线运行，不连接机械臂，不需要 GPU，也不改写原始 HDF5。
+适用于本仓库固定版本的 `a1z_data_collection`：双臂 14 维、三路 JPEG 相机、`arm/state`、`arm/action` 和各路单调时间戳。在 Linux PC 离线运行，不连接机械臂，不需要 GPU，也不改写原始 HDF5。
 
 单臂 7 维、头部＋腕部两路相机数据可在转换器的检查和转换命令中追加 `--single`；训练时按 LoRA／全量选择 `scripts/train_single_lora.sh`／`scripts/train_single_full.sh`。15 Hz 相机以历史帧对齐时，采样年龄可能超过双臂默认的 50 ms；先查看实际时间戳，再按实测上限设置 `--max-age`，不要仅为通过检查盲目放宽。
 
